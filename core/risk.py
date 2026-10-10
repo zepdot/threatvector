@@ -1,19 +1,23 @@
-from core.vectorizer import surec_to_vektor
-from core.cosine import cosine
-from core.profiles import PROFILLER
+from core.vocabulary import RISKLI_KONUMLAR
 
-def siniflandir(surec):
-    v = surec_to_vektor(surec)
-    skorlar = {isim: cosine(v, p) for isim, p in PROFILLER.items()}
-    en_iyi = max(skorlar, key=skorlar.get)
-    return en_iyi, skorlar
 
-def risk_skoru(surec, skorlar):
-    kelimeler = surec.get("kelimeler", [])
-    kotu = max(skorlar["cryptominer"], skorlar["spyware"])
-    imza = 1.0 if ("sig_none" in kelimeler or "sig_invalid" in kelimeler) else 0.0
-    konum = 1.0 if ("loc_temp" in kelimeler or "loc_appdata" in kelimeler) else 0.0
-    return round(100 * (0.6 * kotu + 0.25 * imza + 0.15 * konum))
+def risk_skoru(row, benzerlikler):
+    """0-100 arası risk. Cosine tek başına risk değildir, imza ve konum kuralları eklenir."""
+    skor = max(benzerlikler["spyware"], benzerlikler["cryptominer"]) * 100
+    w = row.get("words", {})
+    imza = w.get("signature", "sig_unknown")
+    konum = w.get("location", "loc_unknown")
+
+    if imza in ("sig_signed", "sig_packaged"):
+        skor *= 0.4                      # imzalı / Store uygulaması: belirgin indirim
+    elif imza in ("sig_unsigned", "sig_invalid"):
+        skor += 10                       # imzasız: artır
+        if konum in RISKLI_KONUMLAR:
+            skor += 20                   # imzasız + riskli konum: daha çok artır
+    # sig_unknown: ne artır ne azalt. Konum tek başına risk sayılmaz.
+
+    return max(0, min(100, round(skor)))
+
 
 def seviye(skor):
     return "düşük" if skor <= 30 else "orta" if skor <= 60 else "yüksek"
