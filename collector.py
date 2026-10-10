@@ -70,8 +70,12 @@ def check_signatures(paths):
                 _sig_cache[item["p"]] = "signed"
             elif status == "NotSigned":
                 _sig_cache[item["p"]] = "unsigned"
+            elif status in ("HashMismatch", "NotTrusted"):
+                _sig_cache[item["p"]] = "invalid"   # bozulmus / guvenilmeyen imza
             else:
-                _sig_cache[item["p"]] = "invalid"
+                # UnknownError, NotSupportedFileFormat, Incompatible ...
+                # imza hakkinda bilgi yok -> risk sayilmasin
+                _sig_cache[item["p"]] = "unknown"
     except Exception:
         pass
 
@@ -201,11 +205,16 @@ def collect(interval=1.0):
     # Imzalari toplu sorgula
     sigs = check_signatures([r["_exe_for_sig"] for r in rows])
     for r in rows:
-        sig = sigs.get(r.pop("_exe_for_sig"), "unknown")
+        exe_path = r.pop("_exe_for_sig")
+        sig = sigs.get(exe_path, "unknown")
         # Store (MSIX) uygulamalari paket imzali olur; Authenticode sorgusu
         # bunlari yanlislikla 'unsigned' gosterebilir (ornek: WhatsApp).
         if r["words"]["location"] == "loc_windowsapps" and sig in ("unsigned", "invalid"):
             sig = "packaged"
+        elif not os.path.isfile(exe_path):
+            # Registry, MemCompression gibi diskte dosyasi olmayan sistem
+            # surecleri: imza sorgulanamaz -> invalid degil unknown
+            sig = "unknown"
         r["words"]["signature"] = "sig_" + sig
     return rows
 
