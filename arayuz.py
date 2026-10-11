@@ -18,10 +18,10 @@ from core.analyzer import analyze
 from demo_core import SAHTE          # Aşama 2'de burası collect() olacak
 
 SUTUNLAR = ["PID", "Ad", "CPU %", "Risk", "Seviye", "En yakın profil",
-            "Cos. Normal", "Cos. Spyware", "Cos. Miner", "İmza"]
+            "Cos. Normal", "Cos. Spyware", "Cos. Miner", "İmza", "En yüksek cosine"]
 YENILE_SN = 30            # otomatik yenileme: bir tarama bittikten kaç saniye sonra yenisi başlasın
 RISK_SUTUNU, SEVIYE_SUTUNU = 3, 4
-BENZERLIK_SUTUNLARI = (6, 7, 8)
+BENZERLIK_SUTUNLARI = (6, 7, 8, 10)      # 10: satırın en yüksek cosine değeri
 
 ARKA = {"düşük": "#14261b", "orta": "#2e2511", "yüksek": "#2e1519"}      # satır arka planı
 VURGU = {"düşük": "#3fb950", "orta": "#d29922", "yüksek": "#f85149"}     # yeşil, turuncu, kırmızı
@@ -39,6 +39,7 @@ QFrame#kart, QFrame#panel {{ background: #161b22; border: 1px solid #21262d; bor
 QLineEdit, QComboBox {{ background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 6px 10px; }}
 QComboBox QAbstractItemView {{ background: #161b22; selection-background-color: #1f3a5f; }}
 QTableWidget {{ background: #0d1117; border: 1px solid #21262d; gridline-color: #21262d; }}
+QTableWidget::item:selected {{ background: #1f3a5f; color: {METIN}; }}
 QHeaderView::section {{ background: #161b22; color: {SOLUK}; border: none; border-bottom: 1px solid #30363d; padding: 8px; font-weight: bold; }}
 QProgressBar {{ background: #21262d; border: none; border-radius: 4px; }}
 QScrollArea, QScrollArea > QWidget, QScrollArea > QWidget > QWidget {{ background: transparent; border: none; }}
@@ -221,7 +222,7 @@ class Pencere(QMainWindow):
         bas.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)          # "Ad" esner
         for j in (RISK_SUTUNU,) + BENZERLIK_SUTUNLARI:
             bas.setSectionResizeMode(j, QHeaderView.ResizeMode.Fixed)
-            self.tablo.setColumnWidth(j, 92 if j == RISK_SUTUNU else 112)
+            self.tablo.setColumnWidth(j, 92 if j == RISK_SUTUNU else 125 if j == 10 else 112)
         self.tablo.setItemDelegateForColumn(RISK_SUTUNU, CubukDelegate(self.tablo))
         for j in BENZERLIK_SUTUNLARI:
             self.tablo.setItemDelegateForColumn(j, CubukDelegate(self.tablo, renk=MAVI, maks=1.0, ondalik=3))
@@ -308,7 +309,7 @@ class Pencere(QMainWindow):
         self.p_adimlar.setTextFormat(Qt.TextFormat.RichText)
         v.addWidget(self.p_adimlar)
 
-        v.addWidget(self._bolum_basligi("SÜREÇ BİLGİLERİ"))
+        v.addWidget(self._bolum_basligi("DOSYA VE KOMUT"))
         self.p_bilgi = QLabel("")
         self.p_bilgi.setWordWrap(True)
         self.p_bilgi.setTextFormat(Qt.TextFormat.RichText)
@@ -331,7 +332,7 @@ class Pencere(QMainWindow):
         for i, s in enumerate(sonuclar):
             b = s["similarities"]
             degerler = [s["pid"], s["name"], s["cpu"], s["risk"], s["level"], s["closest"],
-                        b["normal"], b["spyware"], b["cryptominer"], s["imza"]]
+                        b["normal"], b["spyware"], b["cryptominer"], s["imza"], max(b.values())]
             for j, d in enumerate(degerler):
                 hucre = QTableWidgetItem()
                 hucre.setData(Qt.ItemDataRole.DisplayRole, d)       # sayılar sayı olarak sıralanır
@@ -454,13 +455,8 @@ class Pencere(QMainWindow):
         self.p_adimlar.setText("".join(
             f"<p style='margin:0 0 4px 0;'>• {e(a)}</p>" for a in s["risk_adimlari"]))
         satirlar = [
-            ("En yakın profil", s["closest"]),
-            ("İmza", s["imza"]),
             ("Konum", s["konum"]),
             ("Dosya yolu", s["exe"]),
-            ("CPU / RAM", f"%{s['cpu']} / %{s['ram']}"),
-            ("Thread", s["thread"]),
-            ("Çalışma süresi", sure_yaz(s["yas"])),
             ("Uzak portlar", ", ".join(s["ports"]) or "-"),
             ("Komut kelimeleri", ", ".join(s["cmd"]) or "-"),
         ]
