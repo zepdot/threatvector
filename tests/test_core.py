@@ -67,3 +67,12 @@ def test_sig_unknown_riski_artirmaz():
     imzali = analyze(satir("a", imza="sig_signed", **ayni))["risk"]
     assert bilinmeyen >= imzali   # imzalı indirim alır, unknown almaz
     assert bilinmeyen < 40
+
+
+def test_risk_adimlari_tutarli():
+    from core.risk import risk_hesapla, risk_skoru
+    row = satir("m.exe", cpu=90, thr=8, yas=60, konum="loc_temp",
+                imza="sig_unsigned", ports=["port_3333"], cmd=["stratum", "pool"])
+    r = analyze(row)
+    assert len(r["risk_adimlari"]) >= 3
+    assert r["risk_adimlari"][-1] == f"Sonuç: {r['risk']} / 100"
